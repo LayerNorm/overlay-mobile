@@ -16,8 +16,9 @@ import { LinearGradient } from 'expo-linear-gradient'
 import MaskedView from '@react-native-masked-view/masked-view'
 import { Feather } from '@expo/vector-icons'
 import type { Theme } from '../../constants/theme'
-import { borderRadius, fontSize, spacing } from '../../constants/theme'
+import { borderRadius, continuousCurve, fontSize, spacing } from '../../constants/theme'
 import { GlassSurface } from './GlassSurface'
+import { hapticLight, hapticMedium } from './haptics'
 
 export function TopBarIconButton({
   theme,
@@ -33,6 +34,7 @@ export function TopBarIconButton({
   return (
     <GlassSurface
       interactive
+      variant="vibrant"
       style={[
         styles.iconButton,
         {
@@ -41,7 +43,11 @@ export function TopBarIconButton({
         },
       ]}
     >
-      <TouchableOpacity onPress={onPress} activeOpacity={0.82} style={styles.iconButtonTouch}>
+      <TouchableOpacity
+        onPress={() => { hapticMedium(); onPress() }}
+        activeOpacity={0.82}
+        style={styles.iconButtonTouch}
+      >
         <Feather name={icon} size={16} color={active ? theme.text : theme.textSecondary} />
       </TouchableOpacity>
     </GlassSurface>
@@ -171,9 +177,12 @@ export function StatusPill({
         : { backgroundColor: theme.surfaceSubtle, color: theme.textSecondary }
 
   return (
-    <View style={[styles.pill, { backgroundColor: toneStyle.backgroundColor, borderColor: theme.border }]}>
+    <GlassSurface
+      variant={tone === 'active' ? 'vibrant' : 'clear'}
+      style={[styles.pill, { backgroundColor: toneStyle.backgroundColor, borderColor: theme.border }]}
+    >
       <Text style={[styles.pillText, { color: toneStyle.color }]}>{label}</Text>
-    </View>
+    </GlassSurface>
   )
 }
 
@@ -192,7 +201,7 @@ export const SearchField = React.forwardRef<
 ): React.ReactElement {
   const [focused, setFocused] = React.useState(false)
   return (
-    <GlassSurface interactive style={[styles.searchField, { backgroundColor: theme.glassBg, borderColor: focused ? theme.border : theme.glassBorder }]}>
+    <GlassSurface interactive variant="vibrant" style={[styles.searchField, continuousCurve, { backgroundColor: theme.glassBg, borderColor: focused ? theme.border : theme.glassBorder }]}>
       <Feather name="search" size={15} color={theme.textSecondary} />
       <TextInput
         ref={ref}
@@ -226,7 +235,10 @@ export function SegmentedControl<T extends string>({
   onChange: (value: T) => void
 }): React.ReactElement {
   return (
-    <View style={[styles.segmented, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+    <GlassSurface
+      variant="clear"
+      style={[styles.segmented, { borderColor: theme.border }]}
+    >
       {options.map((option) => {
         const isActive = option.value === value
         return (
@@ -234,6 +246,7 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             onPress={() => {
               if (!isActive) {
+                hapticLight()
                 onChange(option.value)
               }
             }}
@@ -256,7 +269,7 @@ export function SegmentedControl<T extends string>({
           </TouchableOpacity>
         )
       })}
-    </View>
+    </GlassSurface>
   )
 }
 
@@ -275,9 +288,12 @@ export function EmptyState({
 }): React.ReactElement {
   return (
     <View style={styles.emptyState}>
-      <View style={[styles.emptyIcon, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+      <GlassSurface
+        variant="clear"
+        style={[styles.emptyIcon, continuousCurve, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
+      >
         <Feather name={icon} size={22} color={theme.textSecondary} />
-      </View>
+      </GlassSurface>
       <Text style={[styles.emptyTitle, { color: theme.text }]}>{title}</Text>
       <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>{description}</Text>
       {action}
@@ -341,6 +357,7 @@ export function BottomSheet({
 
   useEffect(() => {
     if (visible) {
+      hapticMedium()
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
@@ -383,13 +400,14 @@ export function BottomSheet({
         <Animated.View
           style={[
             styles.sheet,
+            continuousCurve,
             {
               backgroundColor: theme.glassBg,
               transform: [{ translateY: animatedTranslateY }],
             },
           ]}
         >
-          <GlassSurface style={StyleSheet.absoluteFillObject} />
+          <GlassSurface variant="clear" style={StyleSheet.absoluteFillObject} />
           {/* Draggable handle area */}
           <View {...panResponder.panHandlers} style={styles.dragHandleArea}>
             <View style={styles.sheetHandleWrap}>

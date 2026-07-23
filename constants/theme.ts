@@ -72,6 +72,14 @@ export const borderRadius = {
   full: appRadii.pill,
 } as const
 
+/**
+ * iOS uses "continuous" (squircle) corner curves for a native, softer feel.
+ * Spread this onto any rounded View style to opt into the continuous curve
+ * (capsule/pill shapes keep the default circular curve via `borderCurve` override).
+ * On Android/web this is a no-op.
+ */
+export const continuousCurve = { borderCurve: 'continuous' as const }
+
 export const fontSize = {
   xs: appFontSizes.xs,
   sm: appFontSizes.sm,

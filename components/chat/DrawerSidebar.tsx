@@ -26,6 +26,8 @@ import { useDrawer } from '../../contexts/DrawerContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { DRAWER_WIDTH } from '../ui/ScreenWithDrawer'
 import { GlassSurface } from '../ui/GlassSurface'
+import { hapticLight, hapticMedium } from '../ui/haptics'
+import { continuousCurve } from '../../constants/theme'
 
 const CLOSE_THRESHOLD = DRAWER_WIDTH * 0.3
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -166,6 +168,7 @@ export function DrawerSidebar({
   if (variant === 'slide') {
     return (
       <View style={[styles.slideWrapper, { backgroundColor: theme.sidebarSurface }]}>
+        <GlassSurface variant="clear" style={StyleSheet.absoluteFillObject} />
         <DrawerContent
           theme={theme}
           insets={insets}
@@ -230,6 +233,7 @@ export function DrawerSidebar({
         ]}
         {...panResponder.panHandlers}
       >
+        <GlassSurface variant="clear" style={StyleSheet.absoluteFillObject} />
         <DrawerContent
           theme={theme}
           insets={insets}
@@ -364,6 +368,7 @@ function DrawerContent({
 
   const handleNavItemPress = useCallback((item: NavItem) => {
     if (item.disabled) return
+    hapticLight()
     if (item.route === '/(tabs)/notes') {
       void navigateToLastNote()
     } else if (item.route === '/(tabs)/knowledge') {
@@ -480,7 +485,7 @@ function DrawerContent({
               isKnowledgeActive && { backgroundColor: theme.surfaceSubtle },
             ]}
             activeOpacity={0.65}
-            onPress={() => setKnowledgeExpanded(!knowledgeExpanded)}
+            onPress={() => { hapticLight(); setKnowledgeExpanded(!knowledgeExpanded) }}
           >
             <Feather
               name="database"
@@ -635,10 +640,10 @@ function DrawerContent({
       >
         <View style={styles.bottomBarContent}>
           {/* Account Button */}
-          <GlassSurface interactive style={[styles.accountButton, { backgroundColor: theme.glassBg }]}>
+          <GlassSurface interactive variant="vibrant" style={[styles.accountButton, continuousCurve, { backgroundColor: theme.glassBg }]}>
             <TouchableOpacity
               style={styles.accountButtonInner}
-              onPress={() => navigate('/(tabs)/settings')}
+              onPress={() => { hapticLight(); navigate('/(tabs)/settings') }}
               activeOpacity={0.7}
             >
               {user?.profilePictureUrl ? (
@@ -668,11 +673,13 @@ function DrawerContent({
           {/* Search Button */}
           <GlassSurface
             interactive
-            style={[styles.searchButton, { backgroundColor: theme.glassBg }]}
+            variant="vibrant"
+            style={[styles.searchButton, continuousCurve, { backgroundColor: theme.glassBg }]}
           >
             <TouchableOpacity
               style={styles.searchButtonInner}
               onPress={() => {
+                hapticLight()
                 closeDrawer()
                 // Fire after the drawer close animation begins so the search
                 // input on the underlying screen can claim focus cleanly.
@@ -687,11 +694,13 @@ function DrawerContent({
           {/* New Button */}
           <GlassSurface
             interactive
-            style={[styles.newButton, { backgroundColor: theme.glassBg }]}
+            variant="vibrant"
+            style={[styles.newButton, continuousCurve, { backgroundColor: theme.glassBg }]}
           >
             <TouchableOpacity
               style={styles.newButtonInner}
               onPress={() => {
+                hapticMedium()
                 // Create new based on current context
                 if (isChatActive) {
                   onCreateChat()
@@ -762,6 +771,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: 4,
+    ...continuousCurve,
   },
   navItemDisabled: {
     opacity: 0.6,
@@ -839,6 +849,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: 2,
+    ...continuousCurve,
   },
   subItemIcon: {
     marginLeft: 2,
@@ -854,6 +865,7 @@ const styles = StyleSheet.create({
     right: spacing.md,
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
+    ...continuousCurve,
   },
   bottomBarContent: {
     flexDirection: 'row',
@@ -865,6 +877,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    ...continuousCurve,
   },
   accountButtonInner: {
     flexDirection: 'row',
@@ -901,6 +914,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    ...continuousCurve,
   },
   newButtonInner: {
     width: 44,
@@ -915,6 +929,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    ...continuousCurve,
   },
   searchButtonInner: {
     width: 44,

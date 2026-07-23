@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { BlurView } from 'expo-blur'
-import { LinearGradient } from 'expo-linear-gradient'
 import { Feather } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Theme } from '../../constants/theme'
 import { borderRadius, fontSize, spacing } from '../../constants/theme'
 import { useDrawer } from '../../contexts/DrawerContext'
+import { GlassSurface } from './GlassSurface'
+import { hapticLight } from './haptics'
 
 /**
  * Floating, keyboard-anchored search bar. Each screen that supports search
@@ -71,15 +71,15 @@ export function FloatingSearchBar({
 
   return (
     <View style={[styles.wrapper, { bottom: bottomInset }]} pointerEvents="box-none">
-      <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={styles.blur}>
-        <LinearGradient
-          colors={
-            isDark
-              ? ['rgba(40,40,40,0.8)', 'rgba(30,30,30,0.9)']
-              : ['rgba(255,255,255,0.85)', 'rgba(245,245,245,0.92)']
-          }
-          style={styles.gradient}
-        >
+      <GlassSurface
+        interactive
+        variant="vibrant"
+        style={[
+          styles.blur,
+          { boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.45)' : '0 4px 12px rgba(0,0,0,0.18)' },
+        ]}
+      >
+        <View style={styles.gradient}>
           <Feather name="search" size={16} color={theme.textSecondary} />
           <TextInput
             ref={inputRef}
@@ -90,11 +90,14 @@ export function FloatingSearchBar({
             returnKeyType="search"
             style={[styles.input, { color: theme.text }]}
           />
-          <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={() => { hapticLight(); handleClose() }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Feather name="x" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
-        </LinearGradient>
-      </BlurView>
+        </View>
+      </GlassSurface>
     </View>
   )
 }
@@ -110,11 +113,6 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: borderRadius.full,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 10,
   },
   gradient: {
     flex: 1,

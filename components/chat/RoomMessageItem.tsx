@@ -156,6 +156,7 @@ function AgentBlocks({ view, theme, markdownStyles }: {
                 key={`text-${segment.originIndex}`}
                 markdown={segment.block.text}
                 markdownStyle={markdownStyles}
+                md4cFlags={{ latexMath: true }}
               />
             )
           case 'file':
@@ -224,11 +225,11 @@ export const RoomMessageItem = React.memo(function RoomMessageItem({
     view.blocks.length > 0 ? (
       <AgentBlocks view={view} theme={theme} markdownStyles={markdownStyles} />
     ) : view.text ? (
-      <EnrichedMarkdownText markdown={view.text} markdownStyle={markdownStyles} />
+      <EnrichedMarkdownText markdown={view.text} markdownStyle={markdownStyles} md4cFlags={{ latexMath: true }} />
     ) : null
   ) : (
     view.text ? (
-      <EnrichedMarkdownText markdown={view.text} markdownStyle={markdownStyles} />
+      <EnrichedMarkdownText markdown={view.text} markdownStyle={markdownStyles} md4cFlags={{ latexMath: true }} />
     ) : null
   )
 

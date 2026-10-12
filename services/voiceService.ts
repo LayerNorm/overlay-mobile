@@ -52,10 +52,20 @@ export async function clearVoiceAuthSessionFromAppGroup(): Promise<void> {
   }
 }
 
+// Native bridge calls can hang indefinitely (e.g. the record-permission
+// callback never firing on the simulator) — bound every await so a wedged
+// bridge resolves instead of leaving the toggle/refresh inert.
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ])
+}
+
 export async function getMicPermission(): Promise<VoicePermission> {
   if (Platform.OS !== 'ios' || !NativeKeyStore.getMicPermission) return 'undetermined'
   try {
-    return await NativeKeyStore.getMicPermission()
+    return await withTimeout(NativeKeyStore.getMicPermission(), 5000, 'undetermined')
   } catch {
     return 'undetermined'
   }
@@ -64,7 +74,9 @@ export async function getMicPermission(): Promise<VoicePermission> {
 export async function requestMicPermission(): Promise<VoicePermission> {
   if (Platform.OS !== 'ios' || !NativeKeyStore.requestMicPermission) return 'denied'
   try {
-    return await NativeKeyStore.requestMicPermission()
+    // A real system prompt resolves fast; 15s only trips when the bridge
+    // never calls back.
+    return await withTimeout(NativeKeyStore.requestMicPermission(), 15000, 'undetermined')
   } catch {
     return 'denied'
   }
@@ -73,7 +85,7 @@ export async function requestMicPermission(): Promise<VoicePermission> {
 export async function getBackgroundVoiceEnabled(): Promise<boolean> {
   if (Platform.OS !== 'ios' || !NativeKeyStore.getBackgroundModeEnabled) return false
   try {
-    return await NativeKeyStore.getBackgroundModeEnabled()
+    return await withTimeout(NativeKeyStore.getBackgroundModeEnabled(), 5000, false)
   } catch {
     return false
   }
@@ -88,26 +100,26 @@ export async function enableBackgroundVoice(): Promise<{ enabled: boolean; permi
   const permission = await requestMicPermission()
   if (permission !== 'granted') {
     if (NativeKeyStore.setBackgroundModeEnabled) {
-      await NativeKeyStore.setBackgroundModeEnabled(false)
+      await withTimeout(Promise.resolve(NativeKeyStore.setBackgroundModeEnabled(false)), 5000, undefined)
     }
     return { enabled: false, permission }
   }
   if (NativeKeyStore.setBackgroundModeEnabled) {
-    await NativeKeyStore.setBackgroundModeEnabled(true)
+    await withTimeout(Promise.resolve(NativeKeyStore.setBackgroundModeEnabled(true)), 5000, undefined)
   }
   return { enabled: true, permission }
 }
 
 export async function disableBackgroundVoice(): Promise<void> {
   if (NativeKeyStore.setBackgroundModeEnabled) {
-    await NativeKeyStore.setBackgroundModeEnabled(false)
+    await withTimeout(Promise.resolve(NativeKeyStore.setBackgroundModeEnabled(false)), 5000, undefined)
   }
 }
 
 export async function getTranscriptionHistory(): Promise<VoiceTranscription[]> {
   if (Platform.OS !== 'ios' || !NativeKeyStore.getTranscriptionHistory) return []
   try {
-    const history = await NativeKeyStore.getTranscriptionHistory()
+    const history = await withTimeout(NativeKeyStore.getTranscriptionHistory(), 5000, [])
     return Array.isArray(history) ? history : []
   } catch {
     return []

@@ -1,4 +1,4 @@
-import { appJson, asList } from './appApi'
+import { appJson, asList, OverlayApiError } from './appApi'
 import type {
   ConversationSummary,
   KnowledgeFile,
@@ -7,9 +7,37 @@ import type {
   SkillSummary,
 } from '@overlay/app-core'
 
-export async function listProjects(): Promise<ProjectSummary[]> {
-  const payload = await appJson<unknown>('/api/v1/projects')
-  return asList<ProjectSummary>(payload)
+// `/api/v1/projects` is not deployed on every backend — a 404 latches the
+// endpoint as missing for the rest of the session so the screen stops
+// refetching on every focus. Successful lists are cached for the session and
+// invalidated by project mutations.
+let cachedProjects: ProjectSummary[] | null = null
+let projectsEndpointMissing = false
+
+const PROJECTS_UNAVAILABLE_MESSAGE = 'Projects are not available on this server yet.'
+
+export async function listProjects(options?: { force?: boolean }): Promise<ProjectSummary[]> {
+  if (projectsEndpointMissing) {
+    throw new Error(PROJECTS_UNAVAILABLE_MESSAGE)
+  }
+  if (!options?.force && cachedProjects) {
+    return cachedProjects
+  }
+  try {
+    const payload = await appJson<unknown>('/api/v1/projects')
+    cachedProjects = asList<ProjectSummary>(payload)
+    return cachedProjects
+  } catch (error) {
+    if (error instanceof OverlayApiError && error.status === 404) {
+      projectsEndpointMissing = true
+      throw new Error(PROJECTS_UNAVAILABLE_MESSAGE)
+    }
+    throw error
+  }
+}
+
+function invalidateProjectsCache(): void {
+  cachedProjects = null
 }
 
 export async function getProject(projectId: string): Promise<ProjectSummary> {
@@ -23,27 +51,39 @@ export async function createProject(input: {
   instructions?: string
   parentId?: string | null
 }): Promise<{ id: string; project: ProjectSummary }> {
-  return appJson<{ id: string; project: ProjectSummary }>('/api/v1/projects', {
-    method: 'POST',
-    json: input,
-  })
+  try {
+    return await appJson<{ id: string; project: ProjectSummary }>('/api/v1/projects', {
+      method: 'POST',
+      json: input,
+    })
+  } finally {
+    invalidateProjectsCache()
+  }
 }
 
 export async function updateProject(
   projectId: string,
   patch: { name?: string; instructions?: string; parentId?: string | null },
 ): Promise<{ success: boolean; project?: ProjectSummary }> {
-  return appJson<{ success: boolean; project?: ProjectSummary }>('/api/v1/projects', {
-    method: 'PATCH',
-    json: { projectId, ...patch },
-  })
+  try {
+    return await appJson<{ success: boolean; project?: ProjectSummary }>('/api/v1/projects', {
+      method: 'PATCH',
+      json: { projectId, ...patch },
+    })
+  } finally {
+    invalidateProjectsCache()
+  }
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  await appJson('/api/v1/projects', {
-    method: 'DELETE',
-    query: { projectId },
-  })
+  try {
+    await appJson('/api/v1/projects', {
+      method: 'DELETE',
+      query: { projectId },
+    })
+  } finally {
+    invalidateProjectsCache()
+  }
 }
 
 export async function listProjectChats(projectId: string): Promise<ConversationSummary[]> {
@@ -94,10 +134,14 @@ export async function duplicateProject(
   sourceProjectId: string,
   name: string,
 ): Promise<{ project?: ProjectSummary }> {
-  return appJson<{ project?: ProjectSummary }>('/api/v1/projects/duplicate', {
-    method: 'POST',
-    json: { sourceProjectId, name },
-  })
+  try {
+    return await appJson<{ project?: ProjectSummary }>('/api/v1/projects/duplicate', {
+      method: 'POST',
+      json: { sourceProjectId, name },
+    })
+  } finally {
+    invalidateProjectsCache()
+  }
 }
 
 export interface ProjectKnowledgeBaseLink {

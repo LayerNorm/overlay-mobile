@@ -459,7 +459,14 @@ export function Composer(props: ComposerProps): React.ReactElement {
 
             <TouchableOpacity
               activeOpacity={0.82}
-              onPress={() => onChangeInput(`${inputValue}@`)}
+              onPress={() => {
+                // '@' must start a fresh token for trailingMentionQuery to
+                // fire — appending it straight onto a word produces e.g.
+                // "hello@", which never matches and sends the literal '@'.
+                if (mentionQuery !== null) return
+                const needsSpace = inputValue !== '' && !/\s$/.test(inputValue)
+                onChangeInput(`${inputValue}${needsSpace ? ' ' : ''}@`)
+              }}
               style={[styles.toolsButton, { backgroundColor: theme.surfaceSubtle }]}
               accessibilityRole="button"
               accessibilityLabel="Insert mention"

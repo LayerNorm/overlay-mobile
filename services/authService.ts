@@ -380,7 +380,11 @@ export async function refreshAuthSession(session: AuthSession): Promise<AuthSess
 
   if (!response.ok || !data.session) {
     console.error('[Auth] refreshAuthSession: failed -', data.error ?? `status ${response.status}`)
-    throw new Error(data.error || `Session refresh failed with status ${response.status}`)
+    const error = new Error(
+      data.error || `Session refresh failed with status ${response.status}`,
+    ) as Error & { status?: number }
+    error.status = response.status
+    throw error
   }
 
   console.log('[Auth] refreshAuthSession: success')

@@ -94,9 +94,15 @@ function createUrl(
 }
 
 // How many ms before the actual expiry we consider a token "about to expire"
-// and proactively refresh it. WorkOS access tokens last ~15 min; refreshing
-// 5 min early avoids racing against the clock during long API calls.
-const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
+// and proactively refresh it. Must stay well below the token's real lifetime
+// (~5 min observed): at 5 min the check is true at every point in the token's
+// life, so every request triggers a refresh and the rate-limited refresh
+// endpoint (12/10min) returns 429s.
+const TOKEN_REFRESH_BUFFER_MS = 45 * 1000
+
+// After a refresh failure, don't hit the endpoint again for this long — the
+// server rate-limits refreshes, so a tight retry loop makes things worse.
+const REFRESH_FAILURE_COOLDOWN_MS = 60 * 1000
 
 // Server endpoints that mutate user-owned, owner-funded state require an
 // Idempotency-Key header (HTTP 428 without one). The key must stay stable
@@ -155,15 +161,28 @@ function getSessionExpiryMs(session: AuthSession): number {
 }
 
 let refreshInFlight: Promise<AuthSession | null> | null = null
+let refreshCooldownUntil = 0
+// Whether the last refresh failed because the server rejected the refresh
+// token itself (401/403) — the only failure that justifies signing the user
+// out. Rate limits, 5xx and network errors are transient.
+let lastRefreshAuthRejected = false
 
 async function refreshStoredSession(session: AuthSession): Promise<AuthSession | null> {
+  if (Date.now() < refreshCooldownUntil) {
+    console.log('[appApi] refresh skipped: cooling down after recent failure')
+    return null
+  }
   if (!refreshInFlight) {
+    lastRefreshAuthRejected = false
     refreshInFlight = (async () => {
       try {
         const refreshed = await refreshAuthSession(session)
         await saveAuthSession(refreshed)
         return refreshed
       } catch (error) {
+        const status = (error as { status?: number }).status
+        lastRefreshAuthRejected = status === 401 || status === 403
+        refreshCooldownUntil = Date.now() + REFRESH_FAILURE_COOLDOWN_MS
         console.error('[appApi] token refresh failed', error)
         return null
       } finally {
@@ -176,8 +195,10 @@ async function refreshStoredSession(session: AuthSession): Promise<AuthSession |
 
 /**
  * Return a session with a still-valid access token, refreshing it proactively
- * if it has expired (or is about to expire). If refresh fails, the stored
- * session is cleared and an error is thrown so callers can redirect to sign-in.
+ * if it has expired (or is about to expire). Only a definitive rejection of
+ * the refresh token (401/403) clears the stored session — transient failures
+ * (rate limit, 5xx, offline) return the stale session so the request can try
+ * anyway and the 401-retry path decides the outcome.
  */
 async function getValidSession(): Promise<AuthSession | null> {
   const session = await loadAuthSession()
@@ -193,8 +214,11 @@ async function getValidSession(): Promise<AuthSession | null> {
     console.log('[appApi] getValidSession: no expiry known, forcing refresh')
     const refreshed = await refreshStoredSession(session)
     if (refreshed) return refreshed
-    await clearAuthSession()
-    throw new Error('Session expired. Please sign in again.')
+    if (lastRefreshAuthRejected) {
+      await clearAuthSession()
+      throw new Error('Session expired. Please sign in again.')
+    }
+    return session
   }
 
   // Token is still valid (with buffer) — use it as-is.
@@ -213,8 +237,14 @@ async function getValidSession(): Promise<AuthSession | null> {
     console.log('[appApi] getValidSession: refresh succeeded')
     return refreshed
   }
-  await clearAuthSession()
-  throw new Error('Session expired. Please sign in again.')
+  if (lastRefreshAuthRejected) {
+    await clearAuthSession()
+    throw new Error('Session expired. Please sign in again.')
+  }
+  // Transient failure (429, 5xx, offline): keep the stored session — the
+  // request goes out with the stale token, and the 401-retry path decides
+  // the outcome without signing the user out over a hiccup.
+  return session
 }
 
 /**
@@ -226,7 +256,7 @@ async function tryRefreshAfter401(): Promise<AuthSession | null> {
   const session = await loadAuthSession()
   if (!session) return null
   const refreshed = await refreshStoredSession(session)
-  if (!refreshed) {
+  if (!refreshed && lastRefreshAuthRejected) {
     await clearAuthSession()
   }
   return refreshed

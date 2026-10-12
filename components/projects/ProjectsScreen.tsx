@@ -70,6 +70,7 @@ export function ProjectsScreen(): React.ReactElement {
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [skills, setSkills] = useState<SkillSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [name, setName] = useState('')
@@ -85,9 +86,12 @@ export function ProjectsScreen(): React.ReactElement {
     try {
       const rows = await listProjects()
       setProjects(rows)
+      setLoadError(null)
       setSelected((current) => current ? rows.find((row) => row._id === current._id) ?? rows[0] ?? null : rows[0] ?? null)
     } catch (error) {
-      Alert.alert('Projects unavailable', error instanceof Error ? error.message : 'Could not load projects')
+      // Show the failure inline — an Alert on every focus refires every time
+      // the drawer opens, and error bodies can be raw HTML.
+      setLoadError(error instanceof Error ? error.message : 'Could not load projects')
     } finally {
       setLoading(false)
     }
@@ -284,7 +288,9 @@ export function ProjectsScreen(): React.ReactElement {
           rightSlot={<TopBarIconButton theme={theme} icon="plus" onPress={openCreate} />}
         />
         <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 72 }]}>
-          {loading ? <ActivityIndicator color={theme.textSecondary} /> : sortedProjects.length === 0 ? (
+          {loading ? <ActivityIndicator color={theme.textSecondary} /> : loadError ? (
+            <EmptyState theme={theme} icon="alert-circle" title="Couldn't load projects" description={loadError} />
+          ) : sortedProjects.length === 0 ? (
             <EmptyState theme={theme} icon="folder" title="No projects" description="Create a project to group chats, notes, files, and skills." />
           ) : (
             <View style={styles.projectList}>

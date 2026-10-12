@@ -1492,17 +1492,21 @@ export function ChatScreen({
                   icon="more-horizontal"
                   onPress={() => {
                     const current = chatRef.current
-                    if (!current) return
+                    // Chats reached via search/deep-link may not have hydrated
+                    // chatRef yet — fall back to the route's conversationId so
+                    // the actions sheet still opens.
+                    const id = current?.id ?? conversationId
+                    if (!id || id === 'new') return
                     setActionsChat({
-                      id: current.id,
+                      id,
                       title: chatTitle,
-                      createdAt: current.createdAt,
-                      updatedAt: current.updatedAt,
-                      lastMode: current.lastMode,
-                      askModelIds: current.askModelIds,
-                      actModelId: current.actModelId,
-                      clientId: current.clientId,
-                      conversationType: current.conversationType,
+                      createdAt: current?.createdAt ?? 0,
+                      updatedAt: current?.updatedAt ?? 0,
+                      lastMode: current?.lastMode,
+                      askModelIds: current?.askModelIds,
+                      actModelId: current?.actModelId,
+                      clientId: current?.clientId,
+                      conversationType: current?.conversationType,
                     })
                   }}
                 />

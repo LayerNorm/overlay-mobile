@@ -332,6 +332,7 @@ function DrawerContent({
   const [actionsChat, setActionsChat] = useState<ChatMeta | null>(null)
   const [chatFilter, setChatFilter] = useState<ChatListFilter>('all')
   const [collabChats, setCollabChats] = useState<ChatMeta[]>([])
+  const [collabLoadError, setCollabLoadError] = useState<string | null>(null)
   const collabChatsCache = useRef<Map<ChatListView, ChatMeta[]>>(new Map())
   const [newDmOpen, setNewDmOpen] = useState(false)
   const [newChannelOpen, setNewChannelOpen] = useState(false)
@@ -380,8 +381,11 @@ function DrawerContent({
         if (cancelled) return
         collabChatsCache.current.set(chatFilter, items)
         setCollabChats(items)
+        setCollabLoadError(null)
       })
-      .catch(() => undefined)
+      .catch(() => {
+        if (!cancelled) setCollabLoadError('Could not load chats')
+      })
     return () => {
       cancelled = true
     }
@@ -677,6 +681,11 @@ function DrawerContent({
               style={styles.recentsList}
               contentContainerStyle={styles.recentsContent}
             >
+              {chatFilter !== 'personal' && collabLoadError && collabChats.length === 0 ? (
+                <Text style={[styles.recentsLabel, { color: theme.mutedLight, paddingHorizontal: 12, paddingVertical: 6 }]}>
+                  {collabLoadError}
+                </Text>
+              ) : null}
               {(chatFilter === 'personal' ? chats : collabChats)
                 .filter((chat) => {
                   const type = chat.conversationType ?? 'personal'

@@ -33,6 +33,7 @@ export function ArchivedScreen(): React.ReactElement {
   const [chats, setChats] = useState<ChatMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -41,8 +42,11 @@ export function ArchivedScreen(): React.ReactElement {
     try {
       const items = await loadArchivedChats()
       setChats(items)
-    } catch {
-      // keep previous list on failure
+      setLoadError(null)
+    } catch (error) {
+      // Keep any previous list, but surface the failure — a silent empty list
+      // reads as "archive deleted my chat" when it was really a 401/network.
+      setLoadError(error instanceof Error ? error.message : 'Could not load archived chats')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -126,7 +130,14 @@ export function ArchivedScreen(): React.ReactElement {
             placeholder="Search archived chats"
           />
 
-          {!loading && filtered.length === 0 ? (
+          {!loading && loadError ? (
+            <EmptyState
+              theme={theme}
+              icon="alert-circle"
+              title="Couldn't load archived chats"
+              description={loadError}
+            />
+          ) : !loading && filtered.length === 0 ? (
             <EmptyState
               theme={theme}
               icon="archive"

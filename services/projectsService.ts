@@ -1,4 +1,4 @@
-import { appJson } from './appApi'
+import { appJson, asList } from './appApi'
 import type {
   ConversationSummary,
   KnowledgeFile,
@@ -8,7 +8,8 @@ import type {
 } from '@overlay/app-core'
 
 export async function listProjects(): Promise<ProjectSummary[]> {
-  return appJson<ProjectSummary[]>('/api/v1/projects')
+  const payload = await appJson<unknown>('/api/v1/projects')
+  return asList<ProjectSummary>(payload)
 }
 
 export async function getProject(projectId: string): Promise<ProjectSummary> {
@@ -46,27 +47,31 @@ export async function deleteProject(projectId: string): Promise<void> {
 }
 
 export async function listProjectChats(projectId: string): Promise<ConversationSummary[]> {
-  return appJson<ConversationSummary[]>('/api/v1/conversations', {
+  const payload = await appJson<unknown>('/api/v1/conversations', {
     query: { projectId },
   })
+  return asList<ConversationSummary>(payload)
 }
 
 export async function listProjectNotes(projectId: string): Promise<NoteDoc[]> {
-  return appJson<NoteDoc[]>('/api/v1/notes', {
+  const payload = await appJson<unknown>('/api/v1/notes', {
     query: { projectId },
   })
+  return asList<NoteDoc>(payload)
 }
 
 export async function listProjectFiles(projectId: string): Promise<KnowledgeFile[]> {
-  return appJson<KnowledgeFile[]>('/api/v1/files', {
+  const payload = await appJson<unknown>('/api/v1/files', {
     query: { projectId },
   })
+  return asList<KnowledgeFile>(payload)
 }
 
 export async function listProjectSkills(projectId: string): Promise<SkillSummary[]> {
-  return appJson<SkillSummary[]>('/api/v1/skills', {
+  const payload = await appJson<unknown>('/api/v1/skills', {
     query: { projectId },
   })
+  return asList<SkillSummary>(payload)
 }
 
 // ── Phase 5: export / duplicate / knowledge-base attachments / transfer ──

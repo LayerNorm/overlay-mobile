@@ -88,7 +88,7 @@ export function ToolsScreen(): React.ReactElement {
       ])
       setIntegrations(
         integrationResult.items ??
-          integrationResult.connected.map(
+          (integrationResult.connected ?? []).map(
             (slug): IntegrationSummary => ({
               slug,
               name: slug,
@@ -122,14 +122,14 @@ export function ToolsScreen(): React.ReactElement {
 
   useFocusEffect(useCallback(() => { void load() }, [load]))
 
-  const filteredIntegrations = useMemo(() => integrations.filter((item) => `${item.name} ${item.slug}`.toLowerCase().includes(query.toLowerCase())), [integrations, query])
-  const filteredSkills = useMemo(() => skills.filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase())), [skills, query])
-  const filteredMcps = useMemo(() => mcps.filter((item) => `${item.name} ${item.url}`.toLowerCase().includes(query.toLowerCase())), [mcps, query])
+  const filteredIntegrations = useMemo(() => (Array.isArray(integrations) ? integrations : []).filter((item) => `${item.name} ${item.slug}`.toLowerCase().includes(query.toLowerCase())), [integrations, query])
+  const filteredSkills = useMemo(() => (Array.isArray(skills) ? skills : []).filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase())), [skills, query])
+  const filteredMcps = useMemo(() => (Array.isArray(mcps) ? mcps : []).filter((item) => `${item.name} ${item.url}`.toLowerCase().includes(query.toLowerCase())), [mcps, query])
 
   async function runIntegrationSearch(): Promise<void> {
     try {
       const result = await searchIntegrations(query)
-      setIntegrations(result.items)
+      setIntegrations(result.items ?? [])
     } catch (error) {
       Alert.alert('Search failed', error instanceof Error ? error.message : 'Try again.')
     }
@@ -145,7 +145,7 @@ export function ToolsScreen(): React.ReactElement {
         const result = await listIntegrationItems()
         if (attempt !== connectPoll.current) return
         if (result.items) setIntegrations(result.items)
-        const connected = result.connected.includes(expectedSlug) ||
+        const connected = (result.connected ?? []).includes(expectedSlug) ||
           result.items?.some((item) => item.slug === expectedSlug && item.isConnected)
         if (connected) return
       } catch {

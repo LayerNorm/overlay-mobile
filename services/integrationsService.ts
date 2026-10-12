@@ -1,4 +1,4 @@
-import { appJson } from './appApi'
+import { appJson, asList } from './appApi'
 import type { IntegrationSummary, McpServerSummary, SkillSummary } from '@overlay/app-core'
 
 export async function listConnectedIntegrations(): Promise<{ connected: string[] }> {
@@ -29,9 +29,10 @@ export async function searchIntegrations(query = ''): Promise<{
 }
 
 export async function listSkills(projectId?: string): Promise<SkillSummary[]> {
-  return appJson<SkillSummary[]>('/api/v1/skills', {
+  const payload = await appJson<unknown>('/api/v1/skills', {
     query: { projectId: projectId || undefined },
   })
+  return asList<SkillSummary>(payload)
 }
 
 export async function connectIntegration(toolkit: string): Promise<{
@@ -83,7 +84,8 @@ export async function deleteSkill(skillId: string): Promise<void> {
 }
 
 export async function listMcpServers(): Promise<McpServerSummary[]> {
-  return appJson<McpServerSummary[]>('/api/v1/mcps')
+  const payload = await appJson<unknown>('/api/v1/mcps')
+  return asList<McpServerSummary>(payload)
 }
 
 export async function createMcpServer(input: {

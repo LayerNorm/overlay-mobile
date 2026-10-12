@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto'
 import { AUTH_BASE_URL } from './appConfig'
 import {
   loadAuthSession,
@@ -93,9 +94,85 @@ function createUrl(
 }
 
 // How many ms before the actual expiry we consider a token "about to expire"
-// and proactively refresh it. WorkOS access tokens last 15 min; refreshing
+// and proactively refresh it. WorkOS access tokens last ~15 min; refreshing
 // 5 min early avoids racing against the clock during long API calls.
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
+
+// Server endpoints that mutate user-owned, owner-funded state require an
+// Idempotency-Key header (HTTP 428 without one). The key must stay stable
+// across retries of the same logical operation; callers may pass their own
+// via options.headers, otherwise we generate one per request.
+const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key'
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+function isMutatingMethod(method: string | undefined): boolean {
+  return MUTATING_METHODS.has((method ?? 'GET').toUpperCase())
+}
+
+function withIdempotencyKey(headers: Headers, method: string | undefined): void {
+  if (!isMutatingMethod(method)) return
+  if (headers.has(IDEMPOTENCY_KEY_HEADER)) return
+  headers.set(IDEMPOTENCY_KEY_HEADER, Crypto.randomUUID())
+}
+
+function withIdempotencyKeyRecord(
+  headers: Record<string, string>,
+  method: string | undefined,
+): void {
+  if (!isMutatingMethod(method)) return
+  const existing = Object.keys(headers).find(
+    (k) => k.toLowerCase() === IDEMPOTENCY_KEY_HEADER.toLowerCase(),
+  )
+  if (existing) return
+  headers[IDEMPOTENCY_KEY_HEADER] = Crypto.randomUUID()
+}
+
+function decodeJwtExpMs(token: string | undefined): number {
+  if (!token) return 0
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return 0
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const json = JSON.parse(atob(b64)) as { exp?: unknown }
+    return typeof json.exp === 'number' ? json.exp * 1000 : 0
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * When the token actually stops working. The server sets `expiresAt` to the
+ * long-lived session-cookie horizon (~30 days) on some auth paths, while the
+ * underlying WorkOS access token is a JWT that dies after ~15 minutes —
+ * trusting `expiresAt` alone leaves dead tokens in place until every call
+ * starts 401ing. The JWT `exp` claim is the source of truth when present.
+ */
+function getSessionExpiryMs(session: AuthSession): number {
+  const jwtExp = decodeJwtExpMs(session.accessToken)
+  const stored = session.expiresAt ?? 0
+  if (jwtExp && stored) return Math.min(jwtExp, stored)
+  return jwtExp || stored
+}
+
+let refreshInFlight: Promise<AuthSession | null> | null = null
+
+async function refreshStoredSession(session: AuthSession): Promise<AuthSession | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const refreshed = await refreshAuthSession(session)
+        await saveAuthSession(refreshed)
+        return refreshed
+      } catch (error) {
+        console.error('[appApi] token refresh failed', error)
+        return null
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+  }
+  return refreshInFlight
+}
 
 /**
  * Return a session with a still-valid access token, refreshing it proactively
@@ -107,23 +184,17 @@ async function getValidSession(): Promise<AuthSession | null> {
   if (!session) return null
 
   const now = Date.now()
-  const expiresAt = session.expiresAt ?? 0
+  const expiresAt = getSessionExpiryMs(session)
 
   // If we don't know when the token expires (legacy session from before the
-  // expiresAt field was added), still try to refresh it once so we get a
-  // session that DOES carry an expiry. After that refresh, future calls will
-  // have expiresAt and can be checked normally.
+  // expiresAt field was added, or a non-JWT token), still try to refresh it
+  // once so we get a session that DOES carry an expiry.
   if (!expiresAt) {
-    console.log('[appApi] getValidSession: no expiresAt, forcing refresh')
-    try {
-      const refreshed = await refreshAuthSession(session)
-      await saveAuthSession(refreshed)
-      return refreshed
-    } catch (error) {
-      console.error('[appApi] getValidSession: refresh failed for legacy session', error)
-      await clearAuthSession()
-      throw new Error('Session expired. Please sign in again.')
-    }
+    console.log('[appApi] getValidSession: no expiry known, forcing refresh')
+    const refreshed = await refreshStoredSession(session)
+    if (refreshed) return refreshed
+    await clearAuthSession()
+    throw new Error('Session expired. Please sign in again.')
   }
 
   // Token is still valid (with buffer) — use it as-is.
@@ -137,16 +208,28 @@ async function getValidSession(): Promise<AuthSession | null> {
     expiresAt,
     now,
   )
-  try {
-    const refreshed = await refreshAuthSession(session)
-    await saveAuthSession(refreshed)
+  const refreshed = await refreshStoredSession(session)
+  if (refreshed) {
     console.log('[appApi] getValidSession: refresh succeeded')
     return refreshed
-  } catch (error) {
-    console.error('[appApi] getValidSession: refresh failed', error)
-    await clearAuthSession()
-    throw new Error('Session expired. Please sign in again.')
   }
+  await clearAuthSession()
+  throw new Error('Session expired. Please sign in again.')
+}
+
+/**
+ * A 401 can still slip through (token revoked server-side, skew between the
+ * JWT exp and the server's validation, or a request in flight across the
+ * refresh boundary). Give it one refresh+retry before surfacing the error.
+ */
+async function tryRefreshAfter401(): Promise<AuthSession | null> {
+  const session = await loadAuthSession()
+  if (!session) return null
+  const refreshed = await refreshStoredSession(session)
+  if (!refreshed) {
+    await clearAuthSession()
+  }
+  return refreshed
 }
 
 function resolveWorkspaceId(options: AppRequestOptions): string | null {
@@ -159,56 +242,67 @@ export async function appRequest(
   path: string,
   options: AppRequestOptions = {},
 ): Promise<Response> {
-  const session = await getValidSession()
-  const headers = new Headers(options.headers)
-  if (session?.accessToken) {
-    headers.set('Authorization', `Bearer ${session.accessToken}`)
-  }
+  const method = options.method ?? 'GET'
   const workspaceId = resolveWorkspaceId(options)
-  if (workspaceId) {
-    headers.set(ACTIVE_WORKSPACE_HEADER, workspaceId)
-  }
-
-  let body: BodyInit | undefined
-  if (options.formData) {
-    body = options.formData
-  } else if (options.json) {
-    headers.set('Content-Type', 'application/json')
-    body = JSON.stringify({
-      ...options.json,
-      accessToken: session?.accessToken,
-      userId: session?.user.id,
-    })
-  }
-
-  const requestUrl = createUrl(path, session, options.query)
   const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
-  const controller = timeoutMs > 0 ? new AbortController() : null
-  const timer = controller
-    ? setTimeout(() => {
-        console.warn(
-          '[appApi] request timed out after %d ms: %s',
-          timeoutMs,
-          requestUrl,
-        )
-        controller.abort()
-      }, timeoutMs)
-    : null
 
-  let response: Response
-  try {
-    response = await fetch(requestUrl, {
-      method: options.method ?? 'GET',
-      headers,
-      body,
-      signal: controller?.signal,
-    })
-  } finally {
-    if (timer) {
-      clearTimeout(timer)
+  const doFetch = async (session: AuthSession | null): Promise<Response> => {
+    const headers = new Headers(options.headers)
+    if (session?.accessToken) {
+      headers.set('Authorization', `Bearer ${session.accessToken}`)
+    }
+    if (workspaceId) {
+      headers.set(ACTIVE_WORKSPACE_HEADER, workspaceId)
+    }
+    withIdempotencyKey(headers, method)
+
+    let body: BodyInit | undefined
+    if (options.formData) {
+      body = options.formData
+    } else if (options.json) {
+      headers.set('Content-Type', 'application/json')
+      body = JSON.stringify({
+        ...options.json,
+        accessToken: session?.accessToken,
+        userId: session?.user.id,
+      })
+    }
+
+    const requestUrl = createUrl(path, session, options.query)
+    const controller = timeoutMs > 0 ? new AbortController() : null
+    const timer = controller
+      ? setTimeout(() => {
+          console.warn(
+            '[appApi] request timed out after %d ms: %s',
+            timeoutMs,
+            requestUrl,
+          )
+          controller.abort()
+        }, timeoutMs)
+      : null
+
+    try {
+      return await fetch(requestUrl, {
+        method,
+        headers,
+        body,
+        signal: controller?.signal,
+      })
+    } finally {
+      if (timer) {
+        clearTimeout(timer)
+      }
     }
   }
 
+  let session = await getValidSession()
+  let response = await doFetch(session)
+  if (response.status === 401 && session) {
+    const refreshed = await tryRefreshAfter401()
+    if (refreshed) {
+      response = await doFetch(refreshed)
+    }
+  }
   return response
 }
 
@@ -216,28 +310,36 @@ export async function appFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
 ): Promise<Response> {
-  const session = await getValidSession()
-  const headers = new Headers(init.headers)
-  if (session?.accessToken) {
-    headers.set('Authorization', `Bearer ${session.accessToken}`)
-  }
-  // RequestInit has no workspaceId option — callers scoping to a different
-  // workspace set the header themselves; otherwise the module default applies.
-  if (requestWorkspaceId && !headers.has(ACTIVE_WORKSPACE_HEADER)) {
-    headers.set(ACTIVE_WORKSPACE_HEADER, requestWorkspaceId)
-  }
-
   const path =
     typeof input === 'string'
       ? input
       : input instanceof URL
         ? input.toString()
         : input.url
-  const requestUrl = createUrl(path, session)
-  return fetch(requestUrl, {
-    ...init,
-    headers,
-  })
+
+  const doFetch = (session: AuthSession | null): Promise<Response> => {
+    const headers = new Headers(init.headers)
+    if (session?.accessToken) {
+      headers.set('Authorization', `Bearer ${session.accessToken}`)
+    }
+    // RequestInit has no workspaceId option — callers scoping to a different
+    // workspace set the header themselves; otherwise the module default applies.
+    if (requestWorkspaceId && !headers.has(ACTIVE_WORKSPACE_HEADER)) {
+      headers.set(ACTIVE_WORKSPACE_HEADER, requestWorkspaceId)
+    }
+    withIdempotencyKey(headers, init.method)
+    return fetch(createUrl(path, session), { ...init, headers })
+  }
+
+  const session = await getValidSession()
+  let response = await doFetch(session)
+  if (response.status === 401 && session) {
+    const refreshed = await tryRefreshAfter401()
+    if (refreshed) {
+      response = await doFetch(refreshed)
+    }
+  }
+  return response
 }
 
 export async function appJson<T>(
@@ -251,6 +353,48 @@ export async function appJson<T>(
   return response.json() as Promise<T>
 }
 
+// Keys servers have used to wrap list payloads. The BFF contract differs by
+// route version and query params (?view= paginates into {data, nextCursor},
+// some lists nest under their resource name) — normalizing here keeps one
+// badly-shaped list from crashing an entire screen.
+const LIST_WRAPPER_KEYS = [
+  'data',
+  'items',
+  'results',
+  'records',
+  'conversations',
+  'notes',
+  'files',
+  'memories',
+  'outputs',
+  'automations',
+  'runs',
+  'skills',
+  'mcps',
+  'servers',
+  'projects',
+  'agents',
+  'channels',
+  'members',
+] as const
+
+/**
+ * Coerce a list endpoint's response into an array: bare arrays pass through,
+ * common envelope shapes get unwrapped, and anything else becomes an empty
+ * list (screens render their empty state instead of throwing on iteration).
+ */
+export function asList<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[]
+  if (payload !== null && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    for (const key of LIST_WRAPPER_KEYS) {
+      const value = record[key]
+      if (Array.isArray(value)) return value as T[]
+    }
+  }
+  return []
+}
+
 async function toOverlayApiError(response: Response): Promise<OverlayApiError> {
   const text = await response.text().catch(() => '')
   let payload: { error?: unknown; message?: unknown; code?: unknown } | null = null
@@ -261,7 +405,12 @@ async function toOverlayApiError(response: Response): Promise<OverlayApiError> {
   }
 
   const code = typeof payload?.code === 'string' ? payload.code : undefined
-  const raw = String(payload?.message || payload?.error || text || '').trim()
+  let raw = String(payload?.message || payload?.error || text || '').trim()
+  // A proxy/framework error page (404 text/html, Cloudflare block, ...) is not
+  // a user-facing message — don't dump markup into alert dialogs.
+  if (raw.startsWith('<')) {
+    raw = ''
+  }
   const lower = raw.toLowerCase()
   let message: string
   if (response.status === 401) {
@@ -471,6 +620,7 @@ export async function* appXhrStreamSse<T>(
   if (streamWorkspaceId && !headers[ACTIVE_WORKSPACE_HEADER]) {
     headers[ACTIVE_WORKSPACE_HEADER] = streamWorkspaceId
   }
+  withIdempotencyKeyRecord(headers, options.method ?? 'POST')
   let body: string | undefined
   if (options.json) {
     headers['Content-Type'] = 'application/json'

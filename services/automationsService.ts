@@ -1,4 +1,4 @@
-import { appJson, appXhrStreamSse } from './appApi'
+import { appJson, appXhrStreamSse, asList } from './appApi'
 import type {
   AutomationRunDetail,
   AutomationRunEvent,
@@ -8,7 +8,8 @@ import type {
 } from '@overlay/app-core'
 
 export async function listAutomations(): Promise<AutomationSummary[]> {
-  return appJson<AutomationSummary[]>('/api/v1/automations')
+  const payload = await appJson<unknown>('/api/v1/automations')
+  return asList<AutomationSummary>(payload)
 }
 
 export async function createAutomation(input: {
@@ -65,9 +66,10 @@ export async function deleteAutomation(automationId: string): Promise<void> {
 export async function listAutomationRuns(
   automationId: string,
 ): Promise<AutomationRunSummary[]> {
-  return appJson<AutomationRunSummary[]>('/api/v1/automations', {
+  const payload = await appJson<unknown>('/api/v1/automations', {
     query: { automationId, runs: true },
   })
+  return asList<AutomationRunSummary>(payload)
 }
 
 export async function getAutomationRunDetail(

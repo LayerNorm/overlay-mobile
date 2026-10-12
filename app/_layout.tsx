@@ -8,6 +8,7 @@ import { ThemeProvider, useTheme } from '../hooks/useTheme'
 import { AuthProvider, useAuth } from '../contexts/AuthContext'
 import { AppSessionProvider } from '../contexts/AppSessionContext'
 import { WorkspaceProvider } from '../contexts/WorkspaceContext'
+import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { useNotificationWatcher } from '../hooks/useNotificationWatcher'
 import { openNotificationDestination } from '../lib/notificationRouting'
 import {
@@ -236,7 +237,9 @@ export default function RootLayout(): React.ReactElement {
         <ThemeProvider>
           <AppSessionProvider>
             <WorkspaceProvider>
-              <RootLayoutNav />
+              <ErrorBoundary>
+                <RootLayoutNav />
+              </ErrorBoundary>
             </WorkspaceProvider>
           </AppSessionProvider>
         </ThemeProvider>

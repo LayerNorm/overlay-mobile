@@ -4,7 +4,7 @@ import type {
   ConversationSummary,
 } from '@overlay/app-core'
 import { normalizeTranscriptAssistantParts } from '@overlay/chat-core'
-import { appJson, appRequest } from './appApi'
+import { appJson, appRequest, asList } from './appApi'
 import {
   generateChatId,
   getConversationSummaryLastMessage,
@@ -162,9 +162,9 @@ function mapConversationSummary(summary: ConversationSummary): ChatMeta {
 }
 
 export async function loadChatsMeta(projectId?: string): Promise<ChatMeta[]> {
-  const summaries = await appJson<ConversationSummary[]>('/api/v1/conversations', {
+  const summaries = asList<ConversationSummary>(await appJson<unknown>('/api/v1/conversations', {
     query: { projectId: projectId || undefined },
-  })
+  }))
   return summaries
     .map(mapConversationSummary)
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -178,11 +178,10 @@ export type ChatListView = 'personal' | 'dms' | 'channels' | 'all'
  * Mirrors the web sidebar's Personal/DMs/Channels/All filtering.
  */
 export async function loadChatsMetaByView(view: ChatListView): Promise<ChatMeta[]> {
-  const response = await appJson<{ data?: ConversationSummary[] } | ConversationSummary[]>(
+  const summaries = asList<ConversationSummary>(await appJson<unknown>(
     '/api/v1/conversations',
     { query: { view, limit: 100 } },
-  )
-  const summaries = Array.isArray(response) ? response : (response.data ?? [])
+  ))
   return summaries
     .map(mapConversationSummary)
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -190,9 +189,9 @@ export async function loadChatsMetaByView(view: ChatListView): Promise<ChatMeta[
 
 /** Archived conversations — `GET /conversations?archived=true` (web ChatArchivedView). */
 export async function loadArchivedChats(): Promise<ChatMeta[]> {
-  const summaries = await appJson<ConversationSummary[]>('/api/v1/conversations', {
+  const summaries = asList<ConversationSummary>(await appJson<unknown>('/api/v1/conversations', {
     query: { archived: true },
-  })
+  }))
   return summaries
     .map(mapConversationSummary)
     .sort((a, b) => (b.archivedAt ?? b.updatedAt) - (a.archivedAt ?? a.updatedAt))

@@ -49,6 +49,9 @@ function buildTree(
   searchQuery: string,
   contentMatchIds?: Set<string> | null,
 ): TreeNode[] {
+  // A malformed list response used to reach the for...of below and crash the
+  // whole app; render the empty state instead.
+  if (!Array.isArray(files)) return []
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase()
     const matches = files.filter(

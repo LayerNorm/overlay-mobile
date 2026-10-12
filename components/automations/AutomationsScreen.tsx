@@ -62,7 +62,9 @@ export function AutomationsScreen(): React.ReactElement {
   useFocusEffect(useCallback(() => { void load() }, [load]))
 
   const sorted = useMemo(
-    () => [...automations].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)),
+    () => (Array.isArray(automations) ? [...automations] : []).sort(
+      (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
+    ),
     [automations],
   )
 

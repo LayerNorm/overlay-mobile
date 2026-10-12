@@ -1,9 +1,10 @@
-import { appJson, appRequest } from './appApi'
+import { appJson, appRequest, asList } from './appApi'
 import type { KnowledgeFile, MemoryRow, OutputSummary } from '@overlay/app-core'
 
 // ── Memories ──
 export async function listMemories(): Promise<MemoryRow[]> {
-  return appJson<MemoryRow[]>('/api/v1/memory')
+  const payload = await appJson<unknown>('/api/v1/memory')
+  return asList<MemoryRow>(payload)
 }
 
 export async function createMemory(
@@ -40,9 +41,10 @@ export async function bulkDeleteMemories(memoryIds: string[]): Promise<void> {
 
 // ── Files ──
 export async function listKnowledgeFiles(projectId?: string): Promise<KnowledgeFile[]> {
-  return appJson<KnowledgeFile[]>('/api/v1/files', {
+  const payload = await appJson<unknown>('/api/v1/files', {
     query: { projectId: projectId || undefined },
   })
+  return asList<KnowledgeFile>(payload)
 }
 
 export async function getKnowledgeFile(fileId: string): Promise<KnowledgeFile> {
@@ -188,12 +190,13 @@ export async function createFileWithStorage(
 export async function listOutputs(
   options: { type?: string; conversationId?: string } = {},
 ): Promise<OutputSummary[]> {
-  return appJson<OutputSummary[]>('/api/v1/outputs', {
+  const payload = await appJson<unknown>('/api/v1/outputs', {
     query: {
       type: options.type,
       conversationId: options.conversationId,
     },
   })
+  return asList<OutputSummary>(payload)
 }
 
 export async function deleteOutput(outputId: string): Promise<void> {

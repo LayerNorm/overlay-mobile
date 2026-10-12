@@ -1,5 +1,5 @@
 import type { NoteDoc } from '@overlay/app-core'
-import { appJson, appRequest } from './appApi'
+import { appJson, appRequest, asList } from './appApi'
 import type { Note, NoteMeta } from './types'
 
 function mapNote(note: NoteDoc): Note {
@@ -24,9 +24,9 @@ function mapNoteMeta(note: NoteDoc): NoteMeta {
 }
 
 export async function loadNotesIndex(projectId?: string): Promise<NoteMeta[]> {
-  const notes = await appJson<NoteDoc[]>('/api/v1/notes', {
+  const notes = asList<NoteDoc>(await appJson<unknown>('/api/v1/notes', {
     query: { projectId: projectId || undefined },
-  })
+  }))
   return notes.map(mapNoteMeta).sort((a, b) => b.updatedAt - a.updatedAt)
 }
 

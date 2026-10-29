@@ -25,6 +25,14 @@ test('default agents use explicit identity and regular agents retain creatures',
   assert.doesNotMatch(read('lib/agentByo.ts'), /name\.toLowerCase\(\)/)
 })
 
+test('tool and reasoning marks share the label size', () => {
+  const bubble = read('components/chat/MessageBubble.tsx')
+  assert.equal((bubble.match(/<OverlayMark size=\{TOOL_LABEL_SIZE\}/g) ?? []).length, 3)
+  assert.match(bubble, /fontSize: TOOL_LABEL_SIZE/)
+  assert.match(bubble, /paddingTop: \(TOOL_LABEL_LINE_HEIGHT - TOOL_LABEL_SIZE\) \/ 2/)
+  assert.doesNotMatch(bubble, /size=\{6\.5\}/)
+})
+
 test('native assets preserve their configured dimensions and platform alpha rules', () => {
   const assets = [
     ['assets/icon.png', 1024, 1024, 2],

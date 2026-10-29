@@ -29,6 +29,8 @@ import { GeneratedUiCard } from './GeneratedUiCard'
 type MarkdownStyle = EnrichedMarkdownStyle
 
 const DONE_STATES = new Set(['output-available', 'output-error', 'output-denied'])
+const TOOL_LABEL_SIZE = 15
+const TOOL_LABEL_LINE_HEIGHT = 20
 
 // ─── Think-tag extraction ─────────────────────────────────────────────────────
 // Handles both <think>...</think> and <think>...</redacted_thinking> patterns.
@@ -189,7 +191,7 @@ function ReasoningBlock({
   return (
     <View style={styles.toolRow}>
       <View style={styles.logoCol}>
-        <OverlayMark size={6.5} color={theme.textSecondary} motion={isStreaming ? 'look' : 'none'} />
+        <OverlayMark size={TOOL_LABEL_SIZE} color={theme.textSecondary} motion={isStreaming ? 'look' : 'none'} />
       </View>
       <View style={styles.toolContent}>
         <View style={styles.toolHeaderRow}>
@@ -239,7 +241,7 @@ function ToolCallRow({ tool, theme }: { tool: ToolInvocationSummary; theme: Them
   return (
     <View style={styles.toolRow}>
       <View style={styles.logoCol}>
-        <OverlayMark size={6.5} color={theme.textSecondary} motion={isDone || isError ? 'none' : 'look'} />
+        <OverlayMark size={TOOL_LABEL_SIZE} color={theme.textSecondary} motion={isDone || isError ? 'none' : 'look'} />
       </View>
       <View style={styles.toolContent}>
         {isDone || isError ? (
@@ -329,7 +331,7 @@ function ToolGroupBlock({
         activeOpacity={0.82}
       >
         <View style={styles.logoCol}>
-          <OverlayMark size={6.5} color={theme.textSecondary} motion={anyRunning ? 'look' : 'none'} />
+          <OverlayMark size={TOOL_LABEL_SIZE} color={theme.textSecondary} motion={anyRunning ? 'look' : 'none'} />
         </View>
         <View style={styles.toolContent}>
           <View style={styles.toolHeaderRow}>
@@ -1111,7 +1113,7 @@ const styles = StyleSheet.create({
   logoCol: {
     width: 16,
     alignItems: 'center',
-    paddingTop: 2,
+    paddingTop: (TOOL_LABEL_LINE_HEIGHT - TOOL_LABEL_SIZE) / 2,
   },
   toolLogo: {
     width: 14,
@@ -1127,8 +1129,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   toolLabel: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: TOOL_LABEL_SIZE,
+    lineHeight: TOOL_LABEL_LINE_HEIGHT,
   },
 
   // Reasoning scroll

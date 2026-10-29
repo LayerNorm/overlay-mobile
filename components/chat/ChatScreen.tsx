@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { OverlayMark } from '../brand/OverlayMark'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -72,7 +73,6 @@ import { UpgradePrompt } from '../auth/UpgradePrompt'
 import { useAuth } from '../../contexts/AuthContext'
 import * as DocumentPicker from 'expo-document-picker'
 
-const OVERLAY_LOGO = require('../../assets/overlay-logo.png')
 
 // Provider logo mapping (PNG so React Native Image can render them)
 const PROVIDER_LOGOS: Record<string, ReturnType<typeof require>> = {
@@ -1539,7 +1539,7 @@ export function ChatScreen({
             ) : null}
             {messages.length === 0 ? (
               <View style={styles.emptySurface}>
-                <Image source={OVERLAY_LOGO} style={styles.overlayLogo} resizeMode="contain" alt="Overlay logo" />
+                <OverlayMark size={56} color={theme.text} />
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
                   {'How can I help you this ' + getTimeGreeting() + '?'}
                 </Text>

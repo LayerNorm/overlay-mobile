@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
-  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -10,14 +8,8 @@ import {
   View,
 } from 'react-native'
 import { Image as ExpoImage } from 'expo-image'
-import Animated, {
-  FadeIn,
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated'
+import Animated, { FadeIn } from 'react-native-reanimated'
+import { OverlayMark } from '../brand/OverlayMark'
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown'
 import type { MarkdownStyle as EnrichedMarkdownStyle } from 'react-native-enriched-markdown'
 import { Feather } from '@expo/vector-icons'
@@ -35,8 +27,6 @@ import { spacing, fontSize, borderRadius } from '../../constants/theme'
 import { GeneratedUiCard } from './GeneratedUiCard'
 
 type MarkdownStyle = EnrichedMarkdownStyle
-
-const OVERLAY_LOGO = require('../../assets/overlay-logo.png')
 
 const DONE_STATES = new Set(['output-available', 'output-error', 'output-denied'])
 
@@ -173,44 +163,11 @@ function getSourceHostname(url: string): string {
   }
 }
 
-// ─── Shimmer animation ────────────────────────────────────────────────────────
-
-function useShimmerStyle() {
-  const opacity = useSharedValue(0.5)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 700 }),
-        withTiming(0.3, { duration: 700 }),
-      ),
-      -1,
-      false,
-    )
-  }, [opacity])
-  return useAnimatedStyle(() => ({ opacity: opacity.value }))
-}
-
-// ─── Streaming cursor (pulsing overlay logo) ──────────────────────────────────
-
-function StreamingCursor() {
-  const opacity = useSharedValue(1)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.1, { duration: 420 }),
-        withTiming(1, { duration: 420 }),
-      ),
-      -1,
-      false,
-    )
-  }, [opacity])
-  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }))
+function StreamingCursor({ color }: { color: string }) {
   return (
-    <Animated.View style={[styles.cursor, animStyle]}>
-      <Image source={OVERLAY_LOGO} style={styles.cursorImage} resizeMode="contain" alt="Overlay loading indicator" />
-    </Animated.View>
+    <View style={styles.cursor}>
+      <OverlayMark size={24} color={color} motion="look" label="Loading" />
+    </View>
   )
 }
 
@@ -226,21 +183,20 @@ function ReasoningBlock({
   theme: Theme
 }) {
   const [expanded, setExpanded] = useState(false)
-  const shimmerStyle = useShimmerStyle()
   const hasText = text.trim().length > 0
   const showContent = (isStreaming && hasText) || (!isStreaming && expanded && hasText)
 
   return (
     <View style={styles.toolRow}>
       <View style={styles.logoCol}>
-        <Image source={OVERLAY_LOGO} style={styles.toolLogo} resizeMode="contain" alt="Overlay" />
+        <OverlayMark size={6.5} color={theme.textSecondary} motion={isStreaming ? 'look' : 'none'} />
       </View>
       <View style={styles.toolContent}>
         <View style={styles.toolHeaderRow}>
           {isStreaming ? (
-            <Animated.View style={shimmerStyle}>
+            <View>
               <Text style={[styles.toolLabel, { color: theme.textSecondary }]}>Thinking…</Text>
-            </Animated.View>
+            </View>
           ) : (
             <Text style={[styles.toolLabel, { color: theme.textSecondary }]}>Thought</Text>
           )}
@@ -278,13 +234,12 @@ function ReasoningBlock({
 function ToolCallRow({ tool, theme }: { tool: ToolInvocationSummary; theme: Theme }) {
   const isDone = DONE_STATES.has(tool.state ?? '')
   const isError = tool.state === 'output-error' || tool.state === 'output-denied'
-  const shimmerStyle = useShimmerStyle()
   const label = getToolLabel(tool.toolName)
 
   return (
     <View style={styles.toolRow}>
       <View style={styles.logoCol}>
-        <Image source={OVERLAY_LOGO} style={styles.toolLogo} resizeMode="contain" alt="Overlay" />
+        <OverlayMark size={6.5} color={theme.textSecondary} motion={isDone || isError ? 'none' : 'look'} />
       </View>
       <View style={styles.toolContent}>
         {isDone || isError ? (
@@ -295,11 +250,11 @@ function ToolCallRow({ tool, theme }: { tool: ToolInvocationSummary; theme: Them
             {label}
           </Text>
         ) : (
-          <Animated.View style={shimmerStyle}>
+          <View>
             <Text style={[styles.toolLabel, { color: theme.textSecondary }]} numberOfLines={1}>
               {label}
             </Text>
-          </Animated.View>
+          </View>
         )}
       </View>
     </View>
@@ -374,7 +329,7 @@ function ToolGroupBlock({
         activeOpacity={0.82}
       >
         <View style={styles.logoCol}>
-          <Image source={OVERLAY_LOGO} style={styles.toolLogo} resizeMode="contain" alt="Overlay" />
+          <OverlayMark size={6.5} color={theme.textSecondary} motion={anyRunning ? 'look' : 'none'} />
         </View>
         <View style={styles.toolContent}>
           <View style={styles.toolHeaderRow}>
@@ -1036,7 +991,7 @@ export const MessageBubble = React.memo(function MessageBubble({
       {/* Text content */}
       {showInitialCursor ? (
         <View style={[styles.initialCursor, { marginTop: 8 }]}>
-          <StreamingCursor />
+          <StreamingCursor color={theme.text} />
         </View>
       ) : displayContent ? (
         <View style={{ marginTop: 8 }}>
@@ -1047,7 +1002,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           />
           {isLoading ? (
             <View style={styles.streamingLine}>
-              <StreamingCursor />
+              <StreamingCursor color={theme.text} />
             </View>
           ) : null}
         </View>

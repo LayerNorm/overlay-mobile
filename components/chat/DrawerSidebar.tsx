@@ -14,6 +14,7 @@ import {
   View,
   Alert,
 } from 'react-native'
+import { BrandLockup } from '../brand/BrandLockup'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, usePathname, useLocalSearchParams } from 'expo-router'
 import { Feather, Ionicons } from '@expo/vector-icons'
@@ -48,8 +49,7 @@ const CHAT_FILTERS: Array<{ value: ChatListFilter; label: string }> = [
 ]
 
 const CLOSE_THRESHOLD = DRAWER_WIDTH * 0.3
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const OVERLAY_LOGO = require('../../assets/overlay-logo.png')
+
 
 /**
  * Route matching for drawer nav items. Routes may carry a `?tab=` qualifier
@@ -495,8 +495,7 @@ function DrawerContent({
       {/* Header with Logo, Brand, and Workspace Switcher */}
       <View style={[styles.drawerHeader, { paddingTop: insets.top + spacing.md }]}>
         <View style={styles.brandContainer}>
-          <Image source={OVERLAY_LOGO} style={styles.drawerLogo} resizeMode="contain" alt="Overlay logo" />
-          <Text style={[styles.brandText, { color: theme.text }]}>overlay</Text>
+          <BrandLockup color={theme.text} />
         </View>
         <View style={styles.workspaceSwitcherWrap}>
           <WorkspaceSwitcher theme={theme} />

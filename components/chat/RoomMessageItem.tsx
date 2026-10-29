@@ -81,6 +81,7 @@ function AuthorAvatar({ view, theme }: { view: RoomMessageView; theme: Theme }) 
     return (
       <View style={styles.avatarWrap}>
         <AgentCreature
+          isDefault={view.authorIsDefault}
           shape={view.authorShape}
           color={view.authorColor}
           size={30}

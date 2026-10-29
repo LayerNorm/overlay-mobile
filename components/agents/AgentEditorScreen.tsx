@@ -437,7 +437,7 @@ export function AgentEditorScreen({ agentId }: { agentId: string }): React.React
       >
         {/* Live avatar preview */}
         <View style={styles.preview}>
-          <AgentCreature shape={avatarShape} color={avatarColor} size={72} label={name || 'New agent'} />
+          <AgentCreature isDefault={agent?.isDefault} shape={avatarShape} color={avatarColor} size={72} label={name || 'New agent'} />
           <Text style={[styles.previewName, { color: theme.text }]} numberOfLines={1}>
             {name.trim() || 'Untitled agent'}
           </Text>

@@ -59,6 +59,7 @@ export interface RoomMessageView {
   authorKind: RoomAuthorKind
   authorColor?: string
   authorShape?: string
+  authorIsDefault?: boolean
   authorEmail?: string
   createdAt: number
   editedAt?: number
@@ -144,6 +145,7 @@ export function toRoomMessageView({
   authorName,
   authorColor,
   authorShape,
+  authorIsDefault,
   streaming = false,
 }: {
   message: RoomMessageRecord
@@ -151,6 +153,7 @@ export function toRoomMessageView({
   authorName: string
   authorColor?: string
   authorShape?: string
+  authorIsDefault?: boolean
   streaming?: boolean
 }): RoomMessageView {
   const mine = isOwnRoomMessage(message, currentPrincipalId)
@@ -171,6 +174,7 @@ export function toRoomMessageView({
     authorKind: message.authorKind,
     authorColor,
     authorShape,
+    authorIsDefault,
     createdAt: message.createdAt,
     editedAt: message.editedAt,
     deletedAt: message.deletedAt,

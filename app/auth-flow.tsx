@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Image,
   Linking,
   StyleSheet,
   Text,
@@ -30,10 +29,10 @@ import {
   extractTransferToken,
 } from '../services/authService'
 
+import { BrandLockup } from '../components/brand/BrandLockup'
+
 WebBrowser.maybeCompleteAuthSession()
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const OVERLAY_LOGO = require('../assets/overlay-logo.png')
 const TRANSFER_REDIRECT_URI = 'overlay://auth/transfer'
 
 const FADE_DURATION = 400
@@ -184,8 +183,7 @@ export default function AuthFlowScreen(): React.ReactElement {
     <SafeAreaView style={[styles.container, { backgroundColor: '#0a0a0a' }]} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.content}>
         <FadeInView delay={STAGGER_DELAY * 0} style={styles.brandBlock}>
-          <Image source={OVERLAY_LOGO} resizeMode="contain" style={styles.logo} alt="Overlay logo" />
-          <Text style={[styles.title, { color: '#ffffff' }]}>overlay</Text>
+          <BrandLockup size={42} color="#ffffff" />
         </FadeInView>
 
         <View style={styles.buttonStack}>

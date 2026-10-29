@@ -8,6 +8,7 @@ import React from 'react'
 import { View } from 'react-native'
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg'
 import type { WorkspaceAgentCreatureShape } from '@overlay/workspace-contracts'
+import { OverlayMark } from '../brand/OverlayMark'
 import { useTheme } from '../../hooks/useTheme'
 import {
   creatureEyeColor,
@@ -77,28 +78,32 @@ export function AgentCreature({
   color = DEFAULT_AGENT_AVATAR_COLOR,
   size = 32,
   label = 'Agent',
+  isDefault = false,
 }: {
   shape?: WorkspaceAgentCreatureShape | string
   color?: string
   size?: number
   label?: string
+  isDefault?: boolean
 }): React.ReactElement {
-  const { isDark } = useTheme()
+  const { isDark, theme } = useTheme()
   const resolved = normalizeCreatureShape(shape)
   const fills = themeCreatureFills(color)
   return (
     <View
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
       accessibilityRole="image"
       accessibilityLabel={label}
     >
-      <Svg width={size} height={size} viewBox="0 0 100 100">
+      {isDefault ? (
+        <OverlayMark size={size * 0.84} color={theme.text} motion="blink" label="" />
+      ) : <Svg width={size} height={size} viewBox="0 0 100 100">
         <CreatureBody shape={resolved} fill={isDark ? fills.dark : fills.light} />
         <G fill={creatureEyeColor(color)}>
           <Rect x="36" y="45" width="9.5" height="17" rx="4.75" />
           <Rect x="54.5" y="45" width="9.5" height="17" rx="4.75" />
         </G>
-      </Svg>
+      </Svg>}
     </View>
   )
 }

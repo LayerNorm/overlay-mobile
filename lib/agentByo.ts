@@ -111,7 +111,7 @@ export function generatedByoInstructions(harnessLabel: string) {
 export function isDefaultMasterAgent(
   agent: { isDefault?: boolean; name: string } | null | undefined,
 ): boolean {
-  return Boolean(agent && (agent.isDefault || agent.name.toLowerCase() === 'overlay'))
+  return Boolean(agent?.isDefault)
 }
 
 /** Builds the agent create/update payload from editor state (overlay + BYO shapes). */

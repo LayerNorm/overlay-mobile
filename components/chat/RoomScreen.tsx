@@ -67,6 +67,7 @@ import {
   updateRoomParticipantState,
 } from '../../services/collaborationService'
 import { uploadDocument } from '../../services/aiService'
+import { listAgents, type AgentDirectoryItem } from '../../services/agentsService'
 import type { ChatMentionItem } from '../../services/chatTypes'
 import { Composer, type ComposerReplyContext, type PendingDocument } from './Composer'
 import { RoomMessageItem } from './RoomMessageItem'
@@ -120,9 +121,13 @@ function participantMap(participants: ConversationParticipant[]): Map<string, Co
 function resolveAuthor(
   message: RoomMessageRecord,
   participants: Map<string, ConversationParticipant>,
-): { name: string; color?: string; shape?: string } {
+  agents: Map<string, AgentDirectoryItem>,
+): { name: string; color?: string; shape?: string; isDefault?: boolean } {
   const participant = message.authorPrincipalId
     ? participants.get(message.authorPrincipalId)
+    : undefined
+  const agent = message.authorKind === 'agent' && message.authorPrincipalId
+    ? agents.get(message.authorPrincipalId)
     : undefined
   const fallback =
     message.authorKind === 'agent' || message.authorKind === 'model'
@@ -132,10 +137,9 @@ function resolveAuthor(
         : 'Member'
   return {
     name: participant?.displayName?.trim() || fallback,
-    // Participant avatar color/shape are not in the contract payload today;
-    // agents fall back to their generated creature defaults.
-    color: undefined,
-    shape: undefined,
+    color: agent?.avatarColor,
+    shape: agent?.avatarShape,
+    isDefault: agent?.isDefault,
   }
 }
 
@@ -166,6 +170,16 @@ export function RoomScreen({
     savedIds: new Set(),
     loading: true,
   })
+  const [agentsByPrincipalId, setAgentsByPrincipalId] = useState(new Map<string, AgentDirectoryItem>())
+  useEffect(() => {
+    let cancelled = false
+    setAgentsByPrincipalId(new Map())
+    void listAgents(activeWorkspaceId ?? '').then(({ agents }) => {
+      if (!cancelled) setAgentsByPrincipalId(new Map(agents.map((agent) => [agent.principalId, agent])))
+    }).catch(() => undefined)
+    return () => { cancelled = true }
+  }, [activeWorkspaceId])
+
   const [following, setFollowing] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
 
@@ -329,10 +343,13 @@ export function RoomScreen({
       toRoomMessageView({
         message,
         currentPrincipalId: state.currentPrincipalId,
-        authorName: resolveAuthor(message, participantsById).name,
+        authorName: resolveAuthor(message, participantsById, agentsByPrincipalId).name,
+        authorColor: resolveAuthor(message, participantsById, agentsByPrincipalId).color,
+        authorShape: resolveAuthor(message, participantsById, agentsByPrincipalId).shape,
+        authorIsDefault: resolveAuthor(message, participantsById, agentsByPrincipalId).isDefault,
       }),
     )
-  }, [state.messages, state.currentPrincipalId, participantsById])
+  }, [state.messages, state.currentPrincipalId, participantsById, agentsByPrincipalId])
 
   const threadReplyCounts = useMemo(() => {
     if (isThread) return new Map<string, number>()

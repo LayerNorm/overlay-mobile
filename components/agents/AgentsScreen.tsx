@@ -109,7 +109,7 @@ export function AgentsScreen(): React.ReactElement {
         accessibilityRole="button"
         accessibilityLabel={`${agent.name}. ${subtitle}`}
       >
-        <AgentCreature shape={agent.avatarShape} color={agent.avatarColor} size={40} label={agent.name} />
+        <AgentCreature isDefault={agent.isDefault} shape={agent.avatarShape} color={agent.avatarColor} size={40} label={agent.name} />
         <View style={styles.agentBody}>
           <View style={styles.agentTitleRow}>
             <Text style={[styles.agentName, { color: theme.text }]} numberOfLines={1}>

@@ -494,9 +494,25 @@ private struct OverlayKeyboardView: View {
             }
             .padding(.horizontal, keySpacingH / 2)
 
-            // Space — labelled "overlay" in Libre Baskerville
+            // Space
             keyBtn(fill: KP.key, action: { onInsertText(" ") }) {
-                Text("overlay")
+                HStack(alignment: .firstTextBaseline, spacing: 0.65) {
+                    Text("O")
+                        .overlay {
+                            GeometryReader { geometry in
+                                HStack(spacing: geometry.size.width * 0.082) {
+                                    Capsule()
+                                        .frame(width: geometry.size.width * 0.111, height: geometry.size.height * 0.17)
+                                    Capsule()
+                                        .frame(width: geometry.size.width * 0.111, height: geometry.size.height * 0.17)
+                                }
+                                .frame(width: geometry.size.width * 0.303, height: geometry.size.height * 0.17)
+                                .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.45)
+                            }
+                        }
+                    Text("verlay")
+                }
+                    .accessibilityLabel("Overlay")
                     .font(.custom("LibreBaskerville-Regular", size: compact ? 15 : 16))
                     .foregroundColor(KP.secondary)
                     .offset(y: labelOffsetY)

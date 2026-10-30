@@ -190,9 +190,6 @@ function ReasoningBlock({
 
   return (
     <View style={styles.toolRow}>
-      <View style={styles.logoCol}>
-        <OverlayMark size={TOOL_LABEL_SIZE} color={theme.textSecondary} motion={isStreaming ? 'look' : 'none'} />
-      </View>
       <View style={styles.toolContent}>
         <View style={styles.toolHeaderRow}>
           {isStreaming ? (
@@ -240,9 +237,6 @@ function ToolCallRow({ tool, theme }: { tool: ToolInvocationSummary; theme: Them
 
   return (
     <View style={styles.toolRow}>
-      <View style={styles.logoCol}>
-        <OverlayMark size={TOOL_LABEL_SIZE} color={theme.textSecondary} motion={isDone || isError ? 'none' : 'look'} />
-      </View>
       <View style={styles.toolContent}>
         {isDone || isError ? (
           <Text
@@ -330,9 +324,6 @@ function ToolGroupBlock({
         onPress={() => setExpanded((v) => !v)}
         activeOpacity={0.82}
       >
-        <View style={styles.logoCol}>
-          <OverlayMark size={TOOL_LABEL_SIZE} color={theme.textSecondary} motion={anyRunning ? 'look' : 'none'} />
-        </View>
         <View style={styles.toolContent}>
           <View style={styles.toolHeaderRow}>
             <Text
@@ -899,8 +890,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   }
 
   // ── Assistant bubble ─────────────────────────────────────────────────────────
-  const showInitialCursor =
-    isLoading && !displayContent && !hasReasoning && toolInvocations.length === 0
   const isReasoningStreaming = isLoading && !displayContent
   const responseError = message.responses?.find((r) => r.error)?.error
 
@@ -991,22 +980,13 @@ export const MessageBubble = React.memo(function MessageBubble({
       ) : null}
 
       {/* Text content */}
-      {showInitialCursor ? (
-        <View style={[styles.initialCursor, { marginTop: 8 }]}>
-          <StreamingCursor color={theme.text} />
-        </View>
-      ) : displayContent ? (
+      {displayContent ? (
         <View style={{ marginTop: 8 }}>
           <StableMd
             text={normalizeDisplayText(displayContent)}
             style={markdownStyles}
             streaming={isLoading}
           />
-          {isLoading ? (
-            <View style={styles.streamingLine}>
-              <StreamingCursor color={theme.text} />
-            </View>
-          ) : null}
         </View>
       ) : null}
 
@@ -1033,6 +1013,8 @@ export const MessageBubble = React.memo(function MessageBubble({
           ))}
         </View>
       ) : null}
+
+      {isLoading && !responseError ? <StreamingCursor color={theme.text} /> : null}
 
       {responseError ? (
         <View style={[styles.errorBar, { backgroundColor: theme.surfaceSubtle, borderColor: '#fca5a5' }]}>
@@ -1110,15 +1092,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     minHeight: 28,
   },
-  logoCol: {
-    width: 16,
-    alignItems: 'center',
-    paddingTop: (TOOL_LABEL_LINE_HEIGHT - TOOL_LABEL_SIZE) / 2,
-  },
-  toolLogo: {
-    width: 14,
-    height: 14,
-  },
   toolContent: {
     flex: 1,
     gap: 4,
@@ -1145,29 +1118,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Streaming text
-  streamingLine: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-    flexWrap: 'wrap',
-  },
-
   // Streaming cursor
   cursor: {
     width: 24,
     height: 24,
     marginBottom: 3,
-  },
-  cursorImage: {
-    width: 24,
-    height: 24,
-  },
-
-  // Initial loading cursor
-  initialCursor: {
-    paddingVertical: 8,
-    paddingLeft: 2,
   },
 
   // Sources section
